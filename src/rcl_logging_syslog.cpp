@@ -18,6 +18,7 @@
 #include <syslog.h>
 
 #include <memory>
+#include <string>
 #include <system_error>
 
 #include "rcpputils/env.hpp"
@@ -34,6 +35,7 @@
 #include "rcl_logging_interface/rcl_logging_interface.h"
 
 static const char * facility_env_name = "RCL_LOGGING_SYSLOG_FACILITY";
+static const char * robot_prefix_env_name = "ROBOT_PREFIX";
 
 // see https://codebrowser.dev/glibc/glibc/misc/syslog.c.html#LogTag
 // This memory needs to be kept until closelog()
@@ -209,6 +211,16 @@ rcl_logging_ret_t rcl_logging_external_initialize(
     allocator.deallocate(basec, allocator.state);
   });
   syslog_identity = std::make_shared<std::string>(basec);
+  try {
+    std::string robot_prefix = rcpputils::get_env_var(robot_prefix_env_name);
+    if (!robot_prefix.empty()) {
+      syslog_identity = std::make_shared<std::string>(robot_prefix + "__" + basec);
+    }
+  } catch (const std::runtime_error & error) {
+    throw std::runtime_error(
+            std::string("failed to get env var '") + robot_prefix_env_name + "': " + error.what()
+    );
+  }
 
   // Check and fetch the syslog facility from environmental variable
   int syslog_facility = get_syslog_facility();
